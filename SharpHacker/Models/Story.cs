@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
@@ -31,7 +32,7 @@ namespace SharpHackerAPI.Models
         /// <summary>
         /// Comments on story
         /// </summary>
-        public List<Comment> Comments { get; set; }
+        public List<List<Comment>> Comments { get; set; }
 
         /// <summary>
         /// Number of votes the story has
@@ -77,17 +78,69 @@ namespace SharpHackerAPI.Models
         }
 
         /// <summary>
-        /// Finds the parent-level comments
+        /// Returns the comments at the top level (the parent comments)
         /// </summary>
+        /// <returns>The parent comments.</returns>
         public List<Comment> FindParentComments()
         {
             List<Comment> parentComments = new List<Comment>();
-            foreach (Comment c in Comments) {
-                if (c.ParentID == this.ItemID) {
-                    parentComments.Add(c);
+            foreach (List<Comment> comments in Comments)
+            {
+                foreach (Comment c in comments)
+                {
+                    if (c.ParentID == this.ItemID)
+                    {
+                        parentComments.Add(c);
+                    }
                 }
             }
             return parentComments;
+        }
+
+        /// <summary>
+        /// Flattens all of the comments into one list of comment
+        /// </summary>
+        /// <returns>The comments.</returns>
+        public List<Comment> FlattenComments()
+        {
+            return this.Comments.SelectMany(x => x).ToList();
+        }
+
+        /// <summary>
+        /// Returns a list of comments at each level (parent of thread comments are 0) for each thread
+        /// </summary>
+        /// <returns>A dictionary of levels to comments. The 0th level is comments that are directly on the thread
+        /// while the other comments increase in level. Does this for each thread</returns>
+        public List<Dictionary<int, List<Comment>>> LevelComments() {
+            int currentParent = this.ItemID;
+            List<Dictionary<int, List<Comment>>> levelComments = new List<Dictionary<int, List<Comment>>>();
+            foreach (List<Comment> thread in this.Comments) {
+                Dictionary<int, List<Comment>> threadComments = new Dictionary<int, List<Comment>>();
+                Dictionary<int, int> IDToLevel = new Dictionary<int, int>();
+                int level = 0;
+                currentParent = this.ItemID;
+                threadComments[level] = new List<Comment>();
+                foreach (Comment c in thread) {
+                    if (c.ParentID == this.ItemID) {
+                        threadComments[0] = new List<Comment>();
+                        threadComments[0].Add(c);
+                        IDToLevel[c.ItemID] = 0;
+                    } else {
+                        level = IDToLevel[c.ParentID] + 1;
+                        try  {
+                            if (threadComments[level] == null) {
+                                threadComments[level] = new List<Comment>(); 
+                            }
+                        } catch (KeyNotFoundException e) {
+                            threadComments[level] = new List<Comment>();
+                        }
+                        IDToLevel[c.ItemID] = level;
+                        threadComments[level].Add(c);
+                    }
+                }
+                levelComments.Add(threadComments);
+            }
+            return levelComments;
         }
 
         /// <summary>

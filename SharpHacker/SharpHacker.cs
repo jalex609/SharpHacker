@@ -279,24 +279,55 @@ namespace SharpHackerAPI
         /// <summary>
         /// Finds the comments for an article
         /// </summary>
-        /// <returns>The comments for the article.</returns>
+        /// <returns>The comments for the article organized into lists of different threads.</returns>
         /// <param name="ParentComments">ParentComments of article</param>
-        private static async Task<List<Comment>> GetComments(List<int> ParentComments)
+        private static async Task<List<List<Comment>>> GetComments(List<int> ParentComments)
         {
             using (var client = new HttpClient())
             {
-                List<Comment> comments = new List<Comment>();
+                List<List<Comment>> comments = new List<List<Comment>>();
                 foreach (int ID in ParentComments)
                 {
+                    List<Comment> thread = new List<Comment>();
                     var content = await client.GetStringAsync(SharpHacker.MakeItemRequest(ID));
                     Comment comment = JsonConvert.DeserializeObject<Comment>(content);
                     if (comment.CommentChildrenID == null) {
                         comment.CommentChildrenID = new List<int>();
                     }
                     if (!comment.Dead && !comment.Deleted) {
+                        thread.Add(comment);
+                    }
+                    List<Comment> childComments = await GetChildrenCommentsAsync(comment.CommentChildrenID);
+                    thread.AddRange(childComments);
+                    comments.Add(thread);
+                }
+                return comments;
+            }
+        }
+
+        /// <summary>
+        /// Gets the children comments of a thread.
+        /// </summary>
+        /// <returns>Children comments of a thread.</returns>
+        /// <param name="ChildIDs">ID's of original children.</param>
+        private static async Task<List<Comment>> GetChildrenCommentsAsync(List<int> ChildIDs)
+        {
+            using (var client = new HttpClient())
+            {
+                List<Comment> comments = new List<Comment>();
+                foreach (int ID in ChildIDs)
+                {
+                    var content = await client.GetStringAsync(SharpHacker.MakeItemRequest(ID));
+                    Comment comment = JsonConvert.DeserializeObject<Comment>(content);
+                    if (comment.CommentChildrenID == null)
+                    {
+                        comment.CommentChildrenID = new List<int>();
+                    }
+                    if (!comment.Dead && !comment.Deleted)
+                    {
                         comments.Add(comment);
                     }
-                    List<Comment> childComments = await GetComments(comment.CommentChildrenID);
+                    List<Comment> childComments = await GetChildrenCommentsAsync(comment.CommentChildrenID);
                     comments.AddRange(childComments);
                 }
                 return comments;

@@ -14,10 +14,11 @@ namespace SharpHackerTests
         public async Task TestCase()
         {
             SharpHacker hn = new SharpHacker();
-            Story s = await hn.FindStoryByID(17853129);
+            Story s = (Story)(await hn.FindItemByID(17867863));
             List<Comment> comments = s.FindParentComments();
-            Assert.AreEqual(s.Comments.Count, s.CommentCount);
-            Assert.AreEqual(s.FindParentComments().Count, s.ParentCommentsID.Count);
+            List<Comment> flatten = s.FlattenComments();
+            Assert.AreEqual(flatten.Count, s.CommentCount);
+            Assert.AreEqual(s.FindParentComments().Count, s.Comments.Count);
         }
     }
 }
